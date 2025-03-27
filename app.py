@@ -19,11 +19,18 @@ PAGES = {
 }
 
 # --- Sidebar Navigation ---
-st.sidebar.title("Navigation")
+st.sidebar.title("🌐 Navigation")
 st.sidebar.markdown("Select a page to view initiative KPIs:")
 
 # Create radio buttons for page selection
 selection = st.sidebar.radio("Go to", list(PAGES.keys()))
+
+# Add a drop-down list for initiative selection
+initiative = st.sidebar.selectbox(
+    "🎯 Select an Initiative:",
+    ["All Initiatives", "Initiative 1", "Initiative 2", "Initiative 3"],
+    index=0,  # Default to "All Initiatives"
+)
 
 # --- Page Routing ---
 # Get the function corresponding to the selected page
