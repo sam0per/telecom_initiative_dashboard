@@ -1,11 +1,11 @@
-# 📊 Telecom Initiative Dashboard
+# 📊 Telecom Initiative Performance Dashboard
 
-Welcome to the **Telecom Initiative Dashboard**! This interactive dashboard helps you track and analyze key performance indicators (KPIs) for various telecom initiatives. Built with **Streamlit**, it provides a user-friendly interface for exploring data trends and insights.
+Welcome to the **Telecom Initiative Performance Dashboard**! This interactive dashboard helps you track and analyze key performance indicators (KPIs) for various telecom initiatives. Built with [**Streamlit**](https://streamlit.io/), it provides a user-friendly interface for exploring data trends and insights.
 
 ---
 
 ## 🚀 Features
-- **📈 Interactive Charts**: Explore trends with Plotly-powered visualizations.
+- **📈 Interactive Charts**: Explore trends with [Plotly-powered visualizations](https://dash.plotly.com/).
 - **📊 KPI Snapshots**: Get quick insights with metrics and deltas.
 - **🌐 Easy Navigation**: Switch between pages and initiatives effortlessly.
 - **⚡ Performance Optimized**: Cached data ensures a smooth experience.
@@ -70,11 +70,11 @@ Adding a new KPI page is simple:
 
 ## 📊 Example KPIs
 
-| **Metric**            | **Description**                                   |
-|-----------------------|---------------------------------------------------|
-| **Adoption Rate (%)** | Percentage of users adopting the initiative.      |
-| **DAU/MAU Ratio (%)** | Engagement intensity of users.                    |
-| **NPS (Score)**       | Net Promoter Score for customer satisfaction.     |
+| **Metric**            | **Description**                                                                                  |
+|-----------------------|--------------------------------------------------------------------------------------------------|
+| **Adoption Rate (%)** | Percentage of users adopting the initiative.                                                     |
+| **DAU/MAU Ratio (%)** | Engagement intensity of users as daily active users (DAU) divided by monthly active users (MAU)  |
+| **NPS (Score)**       | Net Promoter Score for customer satisfaction.                                                    |
 
 ---
 
