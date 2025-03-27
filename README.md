@@ -39,7 +39,7 @@ http://localhost:8501
 ## 🖼️ Preview
 
 ### **Dashboard Overview**
-![Dashboard Overview](images/dashboard_overview_screenshot.png)
+<img width="1056" alt="dahsboard_overview_screenshot" src="https://github.com/user-attachments/assets/e010233a-373b-4fe6-9408-cf632074054c" />
 
 ---
 
