@@ -44,21 +44,25 @@ http://localhost:8501
 ---
 
 ## 🛠️ Best Practices Applied
-**1. Modularization**
+
+**1. Modularization**  
 Code is split into logical files:
 - `app.py`: Main entry point for the app.
 - `data.py`: Handles mock data generation.
 - `module/overview.py` & `module/adoption.py`: Define page-specific logic.
-**2. Scalability**
+
+**2. Scalability**  
 Adding a new KPI page is simple:
-a. Create a new Python file in the `module` directory (e.g., `module/customer_satisfaction.py`).
-b. Implement the `display_page()` function.
-c. Import the new module in `app.py` and add it to the `PAGES` dictionary.
-**3. User-Friendliness**
+- Create a new Python file in the `module` directory (e.g., `module/customer_satisfaction.py`).
+- Implement the `display_page()` function.
+- Import the new module in `app.py` and add it to the `PAGES` dictionary.
+
+**3. User-Friendliness**  
 - **Clear Titles**: Each page has a descriptive title.
 - **Tooltips**: Metrics include helpful explanations.
 - **Interactive Charts**: Hover, zoom, and explore data visually.
-**4. Performance**
+
+**4. Performance**  
 - **Caching**: `@st.cache_data` ensures data is not regenerated unnecessarily.
 - **Efficient Layout**: Wide layout maximizes screen space.
 
