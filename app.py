@@ -1,5 +1,5 @@
 import streamlit as st
-from pages import overview, adoption # Import page modules
+from module import overview, adoption # Import page modules
 
 # --- Page Configuration ---
 st.set_page_config(

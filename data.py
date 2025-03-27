@@ -55,7 +55,8 @@ def get_adoption_data():
     x0 = N_DAYS / 2 # Midpoint
     sigmoid = L / (1 + np.exp(-k * (days - x0)))
     noise = np.random.normal(0, 2, N_DAYS)
-    df['Adoption Rate (%)'] = np.maximum(0, sigmoid + noise).clip(upper=100)
+    sig_values = np.maximum(0, sigmoid + noise)  # Ensure values are >= 0
+    df["Adoption Rate (%)"] = np.minimum(sig_values, 100)  # Ensure values are <= 100
 
     # MAU (Monthly Active Users) - general upward trend
     df['MAU'] = _add_trend(df['Date'], 50000, 500, noise_level=0.05).astype(int)
