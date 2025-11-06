@@ -106,7 +106,7 @@ def perform_kaplan_meier_analysis(df: pd.DataFrame,
                     # Get survival probability at specific time
                     survival_at_t = kmf.survival_function_at_times(days).values[0]
                     retention_rates[f'retention_{days}d'] = survival_at_t
-                except:
+                except (IndexError, KeyError, ValueError):
                     # If time is beyond data range, use last available value
                     retention_rates[f'retention_{days}d'] = None
             
