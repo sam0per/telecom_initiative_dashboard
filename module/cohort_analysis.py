@@ -64,7 +64,7 @@ def perform_kaplan_meier_analysis(df: pd.DataFrame,
         cohort_name = cohort_col.replace('cohort_', '').replace('_', ' ').title()
         
         # Filter to cohort members
-        cohort_df = df[df[cohort_col] == True].copy()
+        cohort_df = df[df[cohort_col]].copy()
         
         # Skip if cohort is too small
         if len(cohort_df) < 10:
@@ -823,7 +823,7 @@ def display_page():
     
     if retention_90d_values:
         # Find best cohort (highest 90-day retention)
-        best_cohort_col = max(retention_90d_values.items(), key=lambda x: x[1] if x[1] is not None else 0)
+        best_cohort_col = max(retention_90d_values.items(), key=lambda x: x[1] if x[1] is not None else -float('inf'))
         best_cohort = (best_cohort_col[0], km_results[best_cohort_col[0]])
         best_retention = retention_90d_values[best_cohort_col[0]] * 100 if retention_90d_values[best_cohort_col[0]] else 0
         
@@ -875,7 +875,7 @@ def display_page():
             label="Best Cohort (90d)",
             value=best_cohort[1]['cohort_name'],
             delta=f"{best_retention:.1f}%",
-            delta_color="normal",  # This removes the arrow!
+            delta_color="normal",
             help="Cohort with highest 90-day retention rate",
             border=True
         )
@@ -885,7 +885,7 @@ def display_page():
             label="Worst Cohort (90d)",
             value=worst_cohort[1]['cohort_name'],
             delta=f"{worst_retention:.1f}%",
-            delta_color="inverse",  # This removes the arrow!
+            delta_color="inverse",
             help="Cohort with lowest 90-day retention rate",
             border=True
         )
