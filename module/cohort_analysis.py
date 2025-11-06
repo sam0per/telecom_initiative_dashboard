@@ -4,6 +4,9 @@ from lifelines import KaplanMeierFitter, CoxPHFitter
 from lifelines.statistics import logrank_test, multivariate_logrank_test
 from typing import Dict, List, Tuple, Optional
 import streamlit as st
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
 
 def perform_kaplan_meier_analysis(df: pd.DataFrame, 
@@ -523,6 +526,535 @@ def get_survival_summary_table(km_results: Dict[str, Dict]) -> pd.DataFrame:
     summary_df = pd.DataFrame(summary_data)
     
     return summary_df
+
+
+def plot_survival_curves(km_results: Dict[str, Dict], 
+                        title: str = "Kaplan-Meier Survival Curves") -> go.Figure:
+    """
+    Create interactive Plotly visualization of survival curves.
+    
+    Args:
+        km_results: Output from perform_kaplan_meier_analysis()
+        title: Chart title
+        
+    Returns:
+        Plotly Figure object
+    """
+    fig = go.Figure()
+    
+    # Define color palette
+    colors = px.colors.qualitative.Set2
+    
+    for idx, (cohort_col, results) in enumerate(km_results.items()):
+        cohort_name = results['cohort_name']
+        timeline = results['timeline']
+        survival = results['survival_function']
+        ci_lower = results['ci_lower']
+        ci_upper = results['ci_upper']
+        
+        color = colors[idx % len(colors)]
+        
+        # Main survival curve
+        fig.add_trace(go.Scatter(
+            x=timeline,
+            y=survival,
+            name=cohort_name,
+            mode='lines',
+            line=dict(width=3, color=color),
+            hovertemplate=(
+                f'<b>{cohort_name}</b><br>' +
+                'Day: %{x}<br>' +
+                'Survival: %{y:.1%}<br>' +
+                '<extra></extra>'
+            )
+        ))
+        
+        # Confidence interval upper bound
+        fig.add_trace(go.Scatter(
+            x=timeline,
+            y=ci_upper,
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+        # Confidence interval lower bound with fill
+        fig.add_trace(go.Scatter(
+            x=timeline,
+            y=ci_lower,
+            mode='lines',
+            line=dict(width=0),
+            fill='tonexty',
+            fillcolor=f'rgba({int(color[4:-1].split(",")[0])}, {int(color[4:-1].split(",")[1])}, {int(color[4:-1].split(",")[2])}, 0.2)',
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text=title,
+            font=dict(size=20, color='#1f77b4')
+        ),
+        xaxis=dict(
+            title='Days Since Signup',
+            gridcolor='lightgray',
+            showgrid=True
+        ),
+        yaxis=dict(
+            title='Survival Probability',
+            tickformat='.0%',
+            gridcolor='lightgray',
+            showgrid=True,
+            range=[0, 1.05]
+        ),
+        hovermode='x unified',
+        plot_bgcolor='white',
+        height=500,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="right",
+            x=0.99,
+            bgcolor='rgba(255, 255, 255, 0.8)',
+            bordercolor='lightgray',
+            borderwidth=1
+        )
+    )
+    
+    return fig
+
+
+def plot_comparison_heatmap(comparison_matrix: pd.DataFrame,
+                           title: str = "Cohort Comparison Matrix (p-values)") -> go.Figure:
+    """
+    Create heatmap of pairwise comparison p-values.
+    
+    Args:
+        comparison_matrix: Output from create_comparison_matrix()
+        title: Chart title
+        
+    Returns:
+        Plotly Figure object
+    """
+    # Create text annotations for p-values
+    text_annotations = comparison_matrix.apply(
+        lambda row: [f'{x:.4f}' if pd.notna(x) else '-' for x in row], axis=1, result_type='expand'
+    )
+    
+    # Create custom colorscale: green (not significant) to red (significant)
+    colorscale = [
+        [0.0, '#2ecc71'],    # Green (p > 0.05, not significant)
+        [0.05, '#f39c12'],   # Orange (p = 0.05, threshold)
+        [1.0, '#e74c3c']     # Red (p < 0.05, significant)
+    ]
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=comparison_matrix.values,
+        x=comparison_matrix.columns,
+        y=comparison_matrix.index,
+        text=text_annotations.values,
+        texttemplate='%{text}',
+        textfont={"size": 12},
+        colorscale=colorscale,
+        zmid=0.05,
+        zmin=0,
+        zmax=0.1,
+        colorbar=dict(
+            title='p-value',
+            tickvals=[0, 0.05, 0.1],
+            ticktext=['0.00', '0.05', '0.10']
+        ),
+        hovertemplate=(
+            'Cohort A: %{y}<br>' +
+            'Cohort B: %{x}<br>' +
+            'p-value: %{z:.4f}<br>' +
+            '<extra></extra>'
+        )
+    ))
+    
+    fig.update_layout(
+        title=dict(
+            text=title,
+            font=dict(size=18)
+        ),
+        xaxis=dict(title='', side='bottom'),
+        yaxis=dict(title=''),
+        height=400,
+        width=600
+    )
+    
+    return fig
+
+
+def display_page():
+    """
+    Main Streamlit page for Cohort Survival Analysis.
+    """
+    st.set_page_config(page_title="Cohort Analysis", page_icon="📊", layout="wide")
+    
+    # Header
+    st.title("📊 Cohort Survival Analysis")
+    st.markdown("""
+    Analyze user retention patterns across different cohorts using **Kaplan-Meier survival curves** 
+    and statistical comparison tests.
+    """)
+    
+    # Load data
+    with st.spinner("Loading cohort data..."):
+        from data import get_cohort_data
+        from utils.cohort_builder import (
+            create_cohort_definitions,
+            assign_cohorts,
+            calculate_time_to_event
+        )
+        
+        # Get and prepare data
+        df = get_cohort_data()
+        cohort_defs = create_cohort_definitions(df)
+        df = assign_cohorts(df, cohort_defs)
+        df = calculate_time_to_event(df)
+    
+    # Sidebar controls
+    st.sidebar.header("⚙️ Analysis Configuration")
+    
+    # Get all cohort columns
+    all_cohort_cols = [col for col in df.columns if col.startswith('cohort_')]
+    all_cohort_names = [col.replace('cohort_', '').replace('_', ' ').title() 
+                       for col in all_cohort_cols]
+    
+    # Create cohort name to column mapping
+    cohort_mapping = dict(zip(all_cohort_names, all_cohort_cols))
+    
+    # Cohort selection
+    st.sidebar.subheader("📋 Select Cohorts")
+    
+    # Predefined cohort groups for easy selection
+    preset = st.sidebar.radio(
+        "Quick Select:",
+        ["Custom", "User Segments", "Regional", "Plan Types", "Seasonal"]
+    )
+    
+    if preset == "User Segments":
+        default_selection = ['Enterprise', 'Smb', 'Consumer']
+    elif preset == "Regional":
+        default_selection = ['North Region', 'South Region', 'East Region', 'West Region']
+    elif preset == "Plan Types":
+        default_selection = ['Premium Plan', 'Standard Plan', 'Basic Plan']
+    elif preset == "Seasonal":
+        default_selection = ['Q1 Signups', 'Q2 Signups', 'Q3 Signups', 'Q4 Signups']
+    else:
+        default_selection = ['Enterprise', 'Smb', 'Consumer']
+    
+    selected_cohort_names = st.sidebar.multiselect(
+        "Cohorts to analyze:",
+        options=all_cohort_names,
+        default=default_selection
+    )
+    
+    if not selected_cohort_names:
+        st.warning("⚠️ Please select at least one cohort to analyze.")
+        st.stop()
+    
+    # Convert selected names back to column names
+    selected_cohort_cols = [cohort_mapping[name] for name in selected_cohort_names]
+    
+    # Confidence level
+    confidence_level = st.sidebar.slider(
+        "Confidence Level:",
+        min_value=90,
+        max_value=99,
+        value=95,
+        step=1,
+        format="%d%%"
+    ) / 100
+    
+    st.sidebar.markdown("---")
+    
+    # Event type (for future extensibility)
+    event_type = st.sidebar.radio(
+        "📌 Event Type:",
+        ["Churn", "Conversion (Future)"],
+        index=0
+    )
+    
+    if event_type == "Conversion (Future)":
+        st.sidebar.info("Conversion event analysis coming soon!")
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("""
+    **💡 Understanding the Analysis:**
+    
+    - **Survival Curve**: Shows % of users still active over time
+    - **Median Survival**: Time when 50% have churned
+    - **Confidence Intervals**: Uncertainty bounds (shaded areas)
+    - **Log-Rank Test**: Statistical comparison between cohorts
+    - **Hazard Ratio**: Relative churn risk between cohorts
+    """)
+    
+    # Perform analysis
+    with st.spinner("Performing Kaplan-Meier analysis..."):
+        km_results = perform_kaplan_meier_analysis(
+            df, 
+            selected_cohort_cols,
+            confidence_level=confidence_level
+        )
+    
+    if not km_results:
+        st.error("❌ Analysis failed. Please check your cohort selection.")
+        st.stop()
+    
+    # Calculate summary statistics
+    medians = [r['median_survival'] for r in km_results.values()]
+    medians_finite = [m for m in medians if m is not None and not np.isinf(m)]
+    
+    if medians_finite:
+        avg_median = np.mean(medians_finite)
+        best_cohort = max(km_results.items(), 
+                         key=lambda x: x[1]['median_survival'] if x[1]['median_survival'] and not np.isinf(x[1]['median_survival']) else 0)
+        worst_cohort = min(km_results.items(), 
+                          key=lambda x: x[1]['median_survival'] if x[1]['median_survival'] and not np.isinf(x[1]['median_survival']) else float('inf'))
+        
+        best_retention = best_cohort[1].get('retention_90d', 0) * 100
+        worst_retention = worst_cohort[1].get('retention_90d', 0) * 100
+    else:
+        avg_median = 0
+        best_cohort = (None, {'cohort_name': 'N/A'})
+        worst_cohort = (None, {'cohort_name': 'N/A'})
+        best_retention = 0
+        worst_retention = 0
+    
+    # Row 1: Summary Metrics
+    st.subheader("📈 Summary Metrics")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Cohorts Analyzed",
+            len(km_results),
+            help="Number of cohorts included in this analysis"
+        )
+    
+    with col2:
+        if medians_finite:
+            st.metric(
+                "Avg Median Survival",
+                f"{avg_median:.0f} days",
+                help="Average median survival time across all cohorts"
+            )
+        else:
+            st.metric(
+                "Avg Median Survival",
+                "Not reached",
+                help="Most cohorts have >50% retention"
+            )
+    
+    with col3:
+        st.metric(
+            "Best Cohort",
+            best_cohort[1]['cohort_name'],
+            f"{best_retention:.1f}% @ 90d",
+            delta_color="normal",
+            help="Cohort with highest 90-day retention"
+        )
+    
+    with col4:
+        st.metric(
+            "Worst Cohort",
+            worst_cohort[1]['cohort_name'],
+            f"{worst_retention:.1f}% @ 90d",
+            delta_color="inverse",
+            help="Cohort with lowest 90-day retention"
+        )
+    
+    st.markdown("---")
+    
+    # Row 2: Kaplan-Meier Survival Curves
+    st.subheader("📉 Survival Curves")
+    
+    fig_survival = plot_survival_curves(km_results)
+    st.plotly_chart(fig_survival, use_container_width=True)
+    
+    st.info("""
+    📊 **Reading the Chart:**
+    - **Y-axis**: Probability of still being active (0% = all churned, 100% = all active)
+    - **X-axis**: Days since user signup
+    - **Shaded areas**: 95% confidence intervals
+    - **Hover**: View exact values at any point in time
+    """)
+    
+    st.markdown("---")
+    
+    # Row 3: Detailed Comparison Table
+    st.subheader("📊 Cohort Comparison Table")
+    
+    summary_table = get_survival_summary_table(km_results)
+    
+    # Style the dataframe
+    st.dataframe(
+        summary_table,
+        use_container_width=True,
+        height=min(400, (len(summary_table) + 1) * 35)
+    )
+    
+    st.caption("* 'Not reached' = Median survival undefined (>50% of cohort still active)")
+    
+    st.markdown("---")
+    
+    # Row 4: Statistical Comparisons
+    st.subheader("🔬 Statistical Analysis")
+    
+    tab1, tab2, tab3 = st.tabs(["📊 Hazard Ratios", "🔢 Pairwise Comparisons", "📋 Detailed Tests"])
+    
+    with tab1:
+        st.markdown("### Cox Proportional Hazards Analysis")
+        st.markdown("Hazard ratio > 1 indicates **higher churn risk** compared to reference cohort.")
+        
+        with st.spinner("Calculating hazard ratios..."):
+            hazard_df = calculate_hazard_ratios(df, selected_cohort_cols)
+        
+        if not hazard_df.empty and 'error' not in hazard_df.columns:
+            # Display as formatted table
+            st.dataframe(
+                hazard_df.style.format({
+                    'hazard_ratio': '{:.2f}',
+                    'ci_lower': '{:.2f}',
+                    'ci_upper': '{:.2f}',
+                    'p_value': '{:.4f}'
+                }).background_gradient(subset=['hazard_ratio'], cmap='RdYlGn_r'),
+                use_container_width=True
+            )
+            
+            # Visualize hazard ratios
+            fig_hr = go.Figure()
+            
+            for idx, row in hazard_df.iterrows():
+                if not pd.isna(row['p_value']):
+                    color = '#e74c3c' if row['significant'] else '#95a5a6'
+                    
+                    fig_hr.add_trace(go.Scatter(
+                        x=[row['hazard_ratio']],
+                        y=[row['cohort_name']],
+                        mode='markers',
+                        marker=dict(size=12, color=color),
+                        name=row['cohort_name'],
+                        showlegend=False,
+                        error_x=dict(
+                            type='data',
+                            symmetric=False,
+                            array=[row['ci_upper'] - row['hazard_ratio']],
+                            arrayminus=[row['hazard_ratio'] - row['ci_lower']],
+                            color=color
+                        )
+                    ))
+            
+            # Add reference line at HR = 1
+            fig_hr.add_vline(x=1.0, line_dash="dash", line_color="gray", 
+                           annotation_text="Reference (HR=1.0)")
+            
+            fig_hr.update_layout(
+                title="Hazard Ratios with 95% Confidence Intervals",
+                xaxis_title="Hazard Ratio",
+                yaxis_title="",
+                height=300,
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig_hr, use_container_width=True)
+        else:
+            st.warning("⚠️ " + hazard_df['error'].iloc[0] if 'error' in hazard_df.columns 
+                      else "Unable to calculate hazard ratios.")
+    
+    with tab2:
+        st.markdown("### Pairwise Log-Rank Test Results")
+        st.markdown("Green = no significant difference | Red = significantly different (p < 0.05)")
+        
+        if len(selected_cohort_cols) >= 2:
+            with st.spinner("Running pairwise comparisons..."):
+                comparison_matrix = create_comparison_matrix(df, selected_cohort_cols)
+            
+            fig_heatmap = plot_comparison_heatmap(comparison_matrix)
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+        else:
+            st.info("ℹ️ Select at least 2 cohorts to see pairwise comparisons.")
+    
+    with tab3:
+        st.markdown("### Detailed Pairwise Comparisons")
+        
+        if len(selected_cohort_cols) >= 2:
+            cohort_a = st.selectbox("Select first cohort:", selected_cohort_names, index=0)
+            cohort_b = st.selectbox("Select second cohort:", selected_cohort_names, index=min(1, len(selected_cohort_names)-1))
+            
+            if cohort_a != cohort_b:
+                result = compare_cohorts_logrank(
+                    df,
+                    cohort_mapping[cohort_a],
+                    cohort_mapping[cohort_b]
+                )
+                
+                if 'error' not in result:
+                    col_a, col_b = st.columns(2)
+                    
+                    with col_a:
+                        st.metric("Cohort A", cohort_a)
+                        st.metric("Sample Size", f"{result['cohort_a_sample_size']:,}")
+                        median_a = result['cohort_a_median']
+                        st.metric("Median Survival", 
+                                 f"{median_a:.0f} days" if median_a and not np.isinf(median_a) else "Not reached")
+                    
+                    with col_b:
+                        st.metric("Cohort B", cohort_b)
+                        st.metric("Sample Size", f"{result['cohort_b_sample_size']:,}")
+                        median_b = result['cohort_b_median']
+                        st.metric("Median Survival", 
+                                 f"{median_b:.0f} days" if median_b and not np.isinf(median_b) else "Not reached")
+                    
+                    st.markdown("---")
+                    st.markdown("#### Test Results")
+                    st.write(f"**Test Statistic:** {result['test_statistic']:.4f}")
+                    st.write(f"**P-value:** {result['p_value']:.6f}")
+                    
+                    if result['significant']:
+                        st.success(f"✅ **{result['interpretation']}**")
+                        st.info(f"📌 {result['survival_difference']}")
+                    else:
+                        st.info(f"ℹ️ **{result['interpretation']}**")
+                else:
+                    st.error(result['error'])
+            else:
+                st.warning("⚠️ Please select two different cohorts.")
+        else:
+            st.info("ℹ️ Select at least 2 cohorts for detailed comparisons.")
+    
+    st.markdown("---")
+    
+    # Row 5: Export Section
+    st.subheader("💾 Export Analysis Results")
+    
+    col_export1, col_export2 = st.columns(2)
+    
+    with col_export1:
+        # Export summary table
+        csv_summary = summary_table.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Summary Table (CSV)",
+            data=csv_summary,
+            file_name=f"cohort_summary_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+    
+    with col_export2:
+        # Export survival data
+        if not hazard_df.empty and 'error' not in hazard_df.columns:
+            csv_hazard = hazard_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Hazard Ratios (CSV)",
+                data=csv_hazard,
+                file_name=f"hazard_ratios_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
 
 
 # Testing and example usage
