@@ -648,11 +648,11 @@ def plot_comparison_heatmap(comparison_matrix: pd.DataFrame,
         lambda row: [f'{x:.4f}' if pd.notna(x) else '-' for x in row], axis=1, result_type='expand'
     )
     
-    # Create custom colorscale: green (not significant) to red (significant)
+    # Create custom colorscale: green (significant, p < 0.05) to red (not significant, p > 0.05)
     colorscale = [
-        [0.0, '#2ecc71'],    # Green (p > 0.05, not significant)
+        [0.0, '#2ecc71'],    # Green (p < 0.05, significant)
         [0.05, '#f39c12'],   # Orange (p = 0.05, threshold)
-        [1.0, '#e74c3c']     # Red (p < 0.05, significant)
+        [1.0, '#e74c3c']     # Red (p > 0.05, not significant)
     ]
     
     fig = go.Figure(data=go.Heatmap(
