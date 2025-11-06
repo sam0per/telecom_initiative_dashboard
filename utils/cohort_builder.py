@@ -142,7 +142,12 @@ def calculate_time_to_event(df: pd.DataFrame,
     
     # Calculate duration in days
     df_survival['duration'] = (df_survival[end_col] - df_survival[start_col]).dt.days
-    
+
+    # Handle negative durations (data issues)    
+    negative_durations = (df_survival['duration'] < 0).sum()
+    if negative_durations > 0:
+        print(f"Warning: {negative_durations} rows had negative duration (fixed to 1 day).")
+
     # Ensure duration is at least 1 day (avoid zero or negative durations)
     df_survival['duration'] = df_survival['duration'].clip(lower=1)
     
@@ -154,10 +159,6 @@ def calculate_time_to_event(df: pd.DataFrame,
     if null_durations > 0:
         print(f"Warning: {null_durations} rows have null duration. These will be dropped.")
         df_survival = df_survival.dropna(subset=['duration'])
-    
-    negative_durations = (df_survival['duration'] < 0).sum()
-    if negative_durations > 0:
-        print(f"Warning: {negative_durations} rows had negative duration (fixed to 1 day).")
     
     return df_survival
 
@@ -259,7 +260,7 @@ if __name__ == '__main__':
     print("\n" + "=" * 80)
     print("SAMPLE: ENTERPRISE COHORT ANALYSIS")
     print("=" * 80)
-    enterprise_users = df_survival[df_survival['cohort_enterprise'] == True]
+    enterprise_users = df_survival[df_survival['cohort_enterprise']]
     print(f"Total Enterprise users: {len(enterprise_users)}")
     print(f"Churned: {enterprise_users['is_churned'].sum()} ({enterprise_users['is_churned'].mean():.1%})")
     print(f"Median survival: {enterprise_users['duration'].median():.0f} days")
