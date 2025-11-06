@@ -810,21 +810,33 @@ def display_page():
     medians = [r['median_survival'] for r in km_results.values()]
     medians_finite = [m for m in medians if m is not None and not np.isinf(m)]
     
-    if medians_finite:
-        avg_median = np.mean(medians_finite)
-        best_cohort = max(km_results.items(), 
-                         key=lambda x: x[1]['median_survival'] if x[1]['median_survival'] and not np.isinf(x[1]['median_survival']) else 0)
-        worst_cohort = min(km_results.items(), 
-                          key=lambda x: x[1]['median_survival'] if x[1]['median_survival'] and not np.isinf(x[1]['median_survival']) else float('inf'))
+    # Use 90-day retention for best/worst comparison instead of median survival
+    # This works even when median survival is "not reached"
+    retention_90d_values = {
+        cohort_col: results.get('retention_90d', 0) 
+        for cohort_col, results in km_results.items()
+    }
+    
+    if retention_90d_values:
+        # Find best cohort (highest 90-day retention)
+        best_cohort_col = max(retention_90d_values.items(), key=lambda x: x[1] if x[1] is not None else 0)
+        best_cohort = (best_cohort_col[0], km_results[best_cohort_col[0]])
+        best_retention = retention_90d_values[best_cohort_col[0]] * 100 if retention_90d_values[best_cohort_col[0]] else 0
         
-        best_retention = best_cohort[1].get('retention_90d', 0) * 100
-        worst_retention = worst_cohort[1].get('retention_90d', 0) * 100
+        # Find worst cohort (lowest 90-day retention)
+        worst_cohort_col = min(retention_90d_values.items(), key=lambda x: x[1] if x[1] is not None else 1)
+        worst_cohort = (worst_cohort_col[0], km_results[worst_cohort_col[0]])
+        worst_retention = retention_90d_values[worst_cohort_col[0]] * 100 if retention_90d_values[worst_cohort_col[0]] else 0
     else:
-        avg_median = 0
         best_cohort = (None, {'cohort_name': 'N/A'})
         worst_cohort = (None, {'cohort_name': 'N/A'})
         best_retention = 0
         worst_retention = 0
+    
+    if medians_finite:
+        avg_median = np.mean(medians_finite)
+    else:
+        avg_median = 0
     
     # Row 1: Summary Metrics
     st.subheader("📈 Summary Metrics")
@@ -832,43 +844,48 @@ def display_page():
     
     with col1:
         st.metric(
-            "Cohorts Analyzed",
-            len(km_results),
-            help="Number of cohorts included in this analysis"
+            label="Cohorts Analyzed",
+            value=len(km_results),
+            help="Number of cohorts included in this analysis",
+            border=True
         )
     
     with col2:
         if medians_finite:
             st.metric(
-                "Avg Median Survival",
-                f"{avg_median:.0f} days",
-                help="Average median survival time across all cohorts"
+                label="Avg Median Survival",
+                value=f"{avg_median:.0f} days",
+                help="Average median survival time across all cohorts",
+                border=True
             )
         else:
             st.metric(
-                "Avg Median Survival",
-                "Not reached",
-                help="Most cohorts have >50% retention"
+                label="Avg Median Survival",
+                value="Not reached",
+                help="Most cohorts have >50% retention",
+                border=True
             )
     
     with col3:
         st.metric(
-            "Best Cohort",
-            best_cohort[1]['cohort_name'],
-            f"{best_retention:.1f}% @ 90d",
-            delta_color="normal",
-            help="Cohort with highest 90-day retention"
+            label="Best Cohort (90d)",
+            value=best_cohort[1]['cohort_name'],
+            delta=f"{best_retention:.1f}%",
+            delta_color="normal",  # This removes the arrow!
+            help="Cohort with highest 90-day retention rate",
+            border=True
         )
     
     with col4:
         st.metric(
-            "Worst Cohort",
-            worst_cohort[1]['cohort_name'],
-            f"{worst_retention:.1f}% @ 90d",
-            delta_color="inverse",
-            help="Cohort with lowest 90-day retention"
+            label="Worst Cohort (90d)",
+            value=worst_cohort[1]['cohort_name'],
+            delta=f"{worst_retention:.1f}%",
+            delta_color="inverse",  # This removes the arrow!
+            help="Cohort with lowest 90-day retention rate",
+            border=True
         )
-    
+
     st.markdown("---")
     
     # Row 2: Kaplan-Meier Survival Curves
@@ -969,7 +986,7 @@ def display_page():
     
     with tab2:
         st.markdown("### Pairwise Log-Rank Test Results")
-        st.markdown("Green = no significant difference | Red = significantly different (p < 0.05)")
+        st.markdown("Green = significantly different (p < 0.05) | Red = no significant difference")
         
         if len(selected_cohort_cols) >= 2:
             with st.spinner("Running pairwise comparisons..."):
