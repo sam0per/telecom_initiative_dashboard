@@ -1,5 +1,5 @@
 import streamlit as st
-from module import overview, adoption # Import page modules
+from module import overview, adoption, cohort_analysis  # Added cohort_analysis
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -14,6 +14,7 @@ st.set_page_config(
 PAGES = {
     "🏠 Overview": overview.display_page,
     "📈 Adoption & Engagement": adoption.display_page,
+    "🧬 Cohort Analysis": cohort_analysis.display_page,  # NEW PAGE
     # Add new pages here:
     # "💡 New KPI Page": new_kpi_page.display_page,
 }
