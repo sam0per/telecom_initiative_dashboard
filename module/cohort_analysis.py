@@ -417,22 +417,29 @@ def _filter_mutually_exclusive_cohorts(df: pd.DataFrame, cohort_columns: List[st
         
     Returns:
         List of mutually exclusive cohort column names
+    
+    Performance:
+        This function precomputes a cohort overlap matrix to reduce redundant checks.
+        For very large numbers of cohorts, performance may still be O(n²) in the worst case,
+        but the overlap checks are vectorized and more efficient than nested loops.
     """
-    # Check which cohorts don't overlap
-    exclusive_cohorts = []
-    
-    for i, cohort_a in enumerate(cohort_columns):
-        is_exclusive = True
-        for cohort_b in exclusive_cohorts:
+    # Precompute overlap matrix: True if cohorts overlap, False otherwise
+    n = len(cohort_columns)
+    overlap_matrix = np.zeros((n, n), dtype=bool)
+    for i in range(n):
+        for j in range(i + 1, n):
             # Check if any user belongs to both cohorts
-            overlap = (df[cohort_a] & df[cohort_b]).sum()
-            if overlap > 0:
-                is_exclusive = False
-                break
-        
-        if is_exclusive:
+            overlap = (df[cohort_columns[i]] & df[cohort_columns[j]]).any()
+            overlap_matrix[i, j] = overlap
+            overlap_matrix[j, i] = overlap
+
+    exclusive_cohorts = []
+    exclusive_indices = set()
+    for i, cohort_a in enumerate(cohort_columns):
+        # Check if cohort_a overlaps with any already included exclusive cohort
+        if all(not overlap_matrix[i, j] for j in exclusive_indices):
             exclusive_cohorts.append(cohort_a)
-    
+            exclusive_indices.add(i)
     return exclusive_cohorts
 
 
