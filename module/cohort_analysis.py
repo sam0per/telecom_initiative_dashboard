@@ -174,7 +174,7 @@ def compare_cohorts_logrank(df: pd.DataFrame,
     
     # Filter to cohort members
     cohort_a_df = df[df[cohort_col_a] == True]
-    cohort_b_df = df[df[cohort_col_b] == True]
+    cohort_b_df = df[df[cohort_col_b]]
     
     # Validate sample sizes
     if len(cohort_a_df) < 10 or len(cohort_b_df) < 10:
