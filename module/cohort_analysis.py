@@ -831,7 +831,7 @@ def display_page():
         best_retention = retention_90d_values[best_cohort_col[0]] * 100 if retention_90d_values[best_cohort_col[0]] else 0
         
         # Find worst cohort (lowest 90-day retention)
-        worst_cohort_col = min(retention_90d_values.items(), key=lambda x: x[1] if x[1] is not None else 1)
+        worst_cohort_col = min(retention_90d_values.items(), key=lambda x: x[1] if x[1] is not None else float('inf'))
         worst_cohort = (worst_cohort_col[0], km_results[worst_cohort_col[0]])
         worst_retention = retention_90d_values[worst_cohort_col[0]] * 100 if retention_90d_values[worst_cohort_col[0]] else 0
     else:
