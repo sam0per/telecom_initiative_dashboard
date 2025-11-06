@@ -201,7 +201,7 @@ def get_cohort_summary(df: pd.DataFrame) -> pd.DataFrame:
                 'churned_users': cohort_df['is_churned'].sum(),
                 'churn_rate': cohort_df['is_churned'].mean(),
                 'median_days_active': cohort_df['days_active'].median(),
-                'active_users': (~cohort_df['is_churned']).sum()
+                'active_users': len(cohort_df) - cohort_df['is_churned'].sum()
             })
     
     summary_df = pd.DataFrame(summary_data)
