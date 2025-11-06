@@ -75,6 +75,148 @@ def get_adoption_data():
 
     return df.set_index('Date')
 
+
+@st.cache_data(ttl=600)  # Cache for 10 minutes
+def get_cohort_data():
+    """
+    Generates mock user-level data for cohort survival analysis.
+    
+    Returns:
+        DataFrame with columns:
+        - user_id: Unique identifier
+        - signup_date: User registration date
+        - last_activity_date: Last recorded activity
+        - is_churned: Boolean churn status
+        - churn_date: Date of churn (if churned)
+        - user_segment: Enterprise/SMB/Consumer
+        - region: North/South/East/West
+        - plan_type: Premium/Standard/Basic
+        - signup_quarter: Q1/Q2/Q3/Q4
+        - days_active: Total days from signup to churn/censoring
+        - cohort_month: YYYY-MM format
+    """
+    np.random.seed(42)  # Reproducibility
+    
+    n_users = 10000
+    
+    # Generate signup dates over past 12 months
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+    
+    signup_dates = pd.to_datetime([
+        start_date + timedelta(days=np.random.randint(0, 365))
+        for _ in range(n_users)
+    ])
+    
+    # User segments with defined proportions
+    segments = np.random.choice(
+        ['Enterprise', 'SMB', 'Consumer'],
+        size=n_users,
+        p=[0.20, 0.30, 0.50]
+    )
+    
+    # Regions with equal distribution
+    regions = np.random.choice(
+        ['North', 'South', 'East', 'West'],
+        size=n_users,
+        p=[0.25, 0.25, 0.25, 0.25]
+    )
+    
+    # Plan types
+    plan_types = np.random.choice(
+        ['Premium', 'Standard', 'Basic'],
+        size=n_users,
+        p=[0.30, 0.50, 0.20]
+    )
+    
+    # Calculate signup quarters
+    signup_quarters = ['Q' + str((month - 1) // 3 + 1) 
+                      for month in pd.DatetimeIndex(signup_dates).month]
+    
+    # Generate churn based on segment-specific survival curves
+    # Using segment-specific parameters for realistic patterns
+    segment_params = {
+        'Enterprise': {'base_churn_rate': 0.18, 'mean_lifetime': 300, 'shape': 1.5},
+        'SMB': {'base_churn_rate': 0.35, 'mean_lifetime': 180, 'shape': 1.2},
+        'Consumer': {'base_churn_rate': 0.45, 'mean_lifetime': 120, 'shape': 1.0}
+    }
+    
+    days_active_list = []
+    is_churned_list = []
+    churn_dates_list = []
+    
+    for i in range(n_users):
+        segment = segments[i]
+        signup_date = signup_dates[i]
+        quarter = signup_quarters[i]
+        region = regions[i]
+        
+        params = segment_params[segment]
+        base_churn = params['base_churn_rate']
+        
+        # Apply modifiers
+        # Q4 signups have better retention (10% boost)
+        churn_modifier = 0.9 if quarter == 'Q4' else 1.0
+        
+        # Regional variation (±5%)
+        regional_modifier = {
+            'North': 0.95,
+            'South': 1.05,
+            'East': 1.0,
+            'West': 1.0
+        }[region]
+        
+        adjusted_churn_rate = base_churn * churn_modifier * regional_modifier
+        
+        # Determine if user churned
+        is_churned = np.random.random() < adjusted_churn_rate
+        
+        # Generate days active using Weibull distribution for realistic survival curves
+        # Scale based on mean lifetime, shape controls hazard rate pattern
+        days_active = int(np.random.weibull(params['shape']) * params['mean_lifetime'])
+        
+        # Ensure days_active doesn't exceed time since signup
+        max_days_possible = (end_date - signup_date).days
+        days_active = min(days_active, max_days_possible)
+        
+        # For non-churned users, set days_active to time since signup
+        if not is_churned:
+            days_active = max_days_possible
+            churn_date = pd.NaT
+        else:
+            churn_date = signup_date + timedelta(days=days_active)
+        
+        days_active_list.append(days_active)
+        is_churned_list.append(is_churned)
+        churn_dates_list.append(churn_date)
+    
+    # Calculate last activity date
+    last_activity_dates = [
+        signup_dates[i] + timedelta(days=days_active_list[i])
+        for i in range(n_users)
+    ]
+    
+    # Create cohort month (YYYY-MM)
+    cohort_months = [date.strftime('%Y-%m') for date in signup_dates]
+    
+    # Build DataFrame
+    df = pd.DataFrame({
+        'user_id': [f'USR-{str(i).zfill(6)}' for i in range(1, n_users + 1)],
+        'signup_date': signup_dates,
+        'last_activity_date': last_activity_dates,
+        'is_churned': is_churned_list,
+        'churn_date': churn_dates_list,
+        'user_segment': segments,
+        'region': regions,
+        'plan_type': plan_types,
+        'signup_quarter': signup_quarters,
+        'days_active': days_active_list,
+        'cohort_month': cohort_months
+    })
+    
+    return df
+
+
 # Example usage (optional, for testing data.py directly)
 if __name__ == '__main__':
     overview_data = get_overview_data()
@@ -82,3 +224,12 @@ if __name__ == '__main__':
 
     adoption_data = get_adoption_data()
     print("\nAdoption Data Sample:\n", adoption_data.tail())
+    
+    # Test new cohort data
+    cohort_data = get_cohort_data()
+    print("\nCohort Data Sample:\n", cohort_data.head(10))
+    print("\nCohort Data Info:")
+    print(f"Total users: {len(cohort_data)}")
+    print(f"Churned users: {cohort_data['is_churned'].sum()} ({cohort_data['is_churned'].mean():.1%})")
+    print("\nChurn by segment:")
+    print(cohort_data.groupby('user_segment')['is_churned'].agg(['sum', 'mean']))
