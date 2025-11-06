@@ -311,14 +311,11 @@ def calculate_hazard_ratios(df: pd.DataFrame,
     # This avoids the dummy variable trap
     cox_df = df[[duration_col, event_col]].copy()
     
-    # Create cohort_group column: assign each user to ONE cohort
-    def assign_single_cohort(row):
-        for cohort_col in cohorts_to_use:
-            if row[cohort_col]:
-                return cohort_col.replace('cohort_', '')
-        return 'other'
-    
-    cox_df['cohort_group'] = df.apply(assign_single_cohort, axis=1)
+    # Create cohort_group column: assign each user to ONE cohort using vectorized operations
+    cohort_groups = pd.Series('other', index=df.index)
+    for cohort_col in reversed(cohorts_to_use):  # reversed so first match wins
+        cohort_groups[df[cohort_col]] = cohort_col.replace('cohort_', '')
+    cox_df['cohort_group'] = cohort_groups
     
     # Remove rows not in any of our selected cohorts
     cox_df = cox_df[cox_df['cohort_group'] != 'other']
