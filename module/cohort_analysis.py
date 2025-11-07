@@ -990,7 +990,7 @@ def display_page():
     
     with tab2:
         st.markdown("### Pairwise Log-Rank Test Results")
-        st.markdown("Green = not significant (p > 0.05) | Red = significantly different (p < 0.05)")
+        st.markdown("Green = significantly different (p < 0.05) | Red = not significant (p > 0.05)")
         
         if len(selected_cohort_cols) >= 2:
             with st.spinner("Running pairwise comparisons..."):
