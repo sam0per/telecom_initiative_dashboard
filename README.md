@@ -1,6 +1,7 @@
 # 📊 Telecom Initiative Performance Dashboard
 
 A comprehensive, interactive analytics dashboard built with **Streamlit** for tracking and analyzing telecom initiative performance. Features advanced cohort analysis, survival modeling, and data visualization capabilities.
+<img width="936" height="524" alt="DataPipelineVisualization" src="https://github.com/user-attachments/assets/0c0ea9b8-64ad-4433-a813-cbc1def9fb85" />
 
 ---
 
